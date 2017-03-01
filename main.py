@@ -1,5 +1,3 @@
-#LIBRARIES IMPORTED
-
 import gym
 import tensorflow as tf
 import os
@@ -7,100 +5,118 @@ import numpy as np
 from numpy import random
 from gym.spaces.box import Box
 from DQN import experience_replay
+from NET import *
 
-#HYPERPARAMETERS
+def processState(state):
+	return np.reshape(states,[21168])
 
-initial_epsilon = 1
-final_epsilon = 0.1
-decayment_steps = 1000
-gamma   = 0.99
-number_episodes = 10
-max_lenght_episode = 50000
-pre_train_steps = 100
+def updateTargetGraph(tfVars,tau):
+    total_vars = len(tfVars)
+    op_holder = []
+    for idx,var in enumerate(tfVars[0:total_vars/2]):
+        op_holder.append(tfVars[idx+total_vars/2].assign((var.value()*tau) + ((1-tau)*tfVars[idx+total_vars/2].value())))
+    return op_holder
 
-#THE BATCH SIZE AND THE TRACE LENGHT ARE IMPORTANTS IN ORDER TO ACHIEVE A GOOD RESULT WITH GRADIENT DESCENDENT
-#MINI-BATCH GRADIENT DESCENDENT APPROACH
-batch_size = 4
-update_freq = 5
-update_target = 1000
+def updateTarget(op_holder,sess):
+    for op in op_holder:
+        sess.run(op)
 
-#DA DEFINIRE MEGLI, CORRISPONDE AI PARAMETRI DEI LAYER FINALE CONVOLUTIVO
-layer_size = 512
+#import gym
+#env = gym.make('Copy-v0')
+#env.reset()
+#env.render()
 
-#Parameters inizialitation
-j=0
-BufferM = experience_replay()
-k_list = []
-r_list = []
-total_steps=0
+batch_size = 32 #How many experiences to use for each training step.
+update_freq = 4 #How often to perform a training step.
+y = .99 #Discount factor on the target Q-values
+startE = 1 #Starting chance of random action
+endE = 0.1 #Final chance of random action
+anneling_steps = 10000. #How many steps of training to reduce startE to endE.
+num_episodes = 10000 #How many episodes of game environment to train network with.
+pre_train_steps = 10000 #How many steps of random actions before training begins.
+max_epLength = 50 #The max allowed length of our episode.
+path = "./dqn" #The path to save our model to.
+h_size = 512 #The size of the final convolutional layer before splitting it into Advantage and Value streams.
+tau = 0.001 #Rate to update target network toward primary network
 
 
-#CREATION OF THE PONG ENVIRONMENT
+total_steps = 0
+myBuffer = experience_replay()
 
-env = gym.make("Pong-v0")
+image = (imread("atari.png")[:,:,:3]).astype(float32)
+image = image - mean(image)
+xdim = image.shape[0:]
+x = tf.placeholder(tf.float32, (None,) + xdim)
+weights = load("weights_alexnet.py").item()
 
-step_reduction = (initial_epsilon - final_epsilon) / decayment_steps
-UP = 1
-DOWN = 2
-STOP = 3
-actions= np.array([UP,DOWN,STOP])
 
-epsilon = initial_epsilon
+e = startE
+stepDrop = (startE - endE)/anneling_steps
+#Costructors of the Nets
 
-for j in range(number_episodes):
+targetQN = Q_Net()
+mainQN = Q_Net()
+targetQN.Preprocessing(weights,x)
+#targetQN.Train()
+targetQN.Predict()
+mainQN.Preprocessing(weights,x)
+mainQN.Predict()
+mainQN.Train(targetQN)
 
- #PARAMETERS IN THE PREVIOUS TRAINING STEP
- previous_last_layer = (np.zeros([1,layer_size]),np.zeros([1,layer_size]))
- state = env.reset()
- newstate = state
- episode = []
- k = 0
- done = False
- total_reward = 0
+init = tf.initialize_all_variables()
 
-#INNER LOOP
- while (k < max_lenght_episode):
-     #env.render()
-     #Epsilon-Greedy
-     state = newstate
-     #PER ORA 2, NON AVENDO UNA POLITICA ALTERNATIVA ( ARGMAX Q(S,A)) DA POTER USARE LO FACCIO ANDARE SEMPRE random
-     if np.random.random() < 2 :
-        #REDUCED THE NUMBER OF ACTIONS
-        #action = env.action_space.sample() # your agent here (this takes random actions)
-        #0,1 action  --> stop in the center of frame
-        #2,4 action  --> go up
-        #3,5 action  --> go down
-        selected_action = np.random.choice(actions)
-     newstate, reward, done, info = env.step(selected_action)
 
-     #IF STATE NEED TO BE RESET, DONE BECOMES BOOLEAN TRUE AND STOP INNER LOOP
-     if done == True :
-        break
+#targetops
+trainables = tf.trainable_variables()
+targetOps = updateTargetGraph(trainables,tau)
 
-     total_reward = total_reward + reward
-     episode.append(np.reshape(np.array([newstate,selected_action,reward,state,done]),[1,5]))
+with tf.Session() as sess:
+    sess.run(init)
+    #
+    for i in range(num_episodes):
+            episodeBuffer = experience_replay()
+            #Reset environment and get first new observation
+            s = env.reset()
+            s = processState(s)
+            d = False
+            rAll = 0
+            j = 0
+            #The Q-Network
+            while j < max_epLength: #If the agent takes longer than 200 moves to reach either of the blocks, end the trial.
+                j+=1
+                #Choose an action by greedily (with e chance of random action) from the Q-network
+                if np.random.rand(1) < e or total_steps < pre_train_steps:
+                    a = np.random.randint(0,2)
+                else:
+                    a = sess.run(mainQN.argmax,feed_dict={mainQN.scalarInput:[s]})[0]
+                s1,r,d = env.step(a)
+                s1 = processState(s1)
+                total_steps += 1
+                episodeBuffer.add(np.reshape(np.array([s,a,r,s1,d]),[1,5])) #Save the experience to our episode buffer.
+                
+                if total_steps > pre_train_steps:
+                    if e > endE:
+                        e -= stepDrop
+                    
+                    if total_steps % (update_freq) == 0:
+                        trainBatch = myBuffer.sample(batch_size) #Get a random batch of experiences.
+                        #Below we perform the Double-DQN update to the target Q-values
+                        Q1 = sess.run(mainQN.argmax,feed_dict={mainQN.scalarInput:np.vstack(trainBatch[:,3])})
+                        Q2 = sess.run(targetQN.prob,feed_dict={targetQN.scalarInput:np.vstack(trainBatch[:,3])})
+                        end_multiplier = -(trainBatch[:,4] - 1)
+                        targetQ = trainBatch[:,2] + (y*Q2 * end_multiplier)
+                        #Update the network with our target values.
+                        _ = sess.run(mainQN.updateWeights, \
+                            feed_dict={mainQN.scalarInput:np.vstack(trainBatch[:,0]),mainQN.targetQ:targetQ, mainQN.actions:trainBatch[:,1]})
+                        
+                        updateTarget(targetOps,sess) #Set the target network to be equal to the primary network.
+                rAll += r
+                s = s1
+                
+                if d == True:
 
-     #WAITING PRE_TRAIN_STEPS BEFORE STARTING TRAINING
-     if (total_steps > pre_train_steps):
+                    break
+            
+            myBuffer.add(episodeBuffer.buffer)
 
-        #REDUCTION OF LEARNING RATE
-        if epsilon > final_epsilon:
-                    epsilon = epsilon - step_reduction
-
-        if (total_steps % (update_freq * update_target)) == 0:
-         #UPDATE TARGET Q FUNCTION, NOW DOING pass == NOOPERATION, TO BE UPDATED
-           pass
-
-        if (total_steps % update_freq) == 0:
-          train_layer = (np.zeros([batch_size,layer_size]),np.zeros([batch_size,layer_size]))
-          train_batch = BufferM.sample(batch_size)
-         #NOW SHOULD BE FEED THE NEURAL NETWORKS WITH train_batch
-         #BLA BLA BLA NEURAL NETWORK'S STUFF
-
-     k=k+1
-     #PARAMETERS IN THE ACTUAL LAYER
-     actual_last_layer = previous_last_layer
-     total_steps = total_steps + 1
-     BufferM.add(episode)
-     r_list.append(reward)
-     k_list.append(k)
+        
