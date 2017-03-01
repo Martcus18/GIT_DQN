@@ -17,7 +17,7 @@ from numpy import random
 import tensorflow as tf
 
 #Convolutional Net taken from http://www.cs.toronto.edu/~guerzhoy/tf_alexnet/
-
+#VEDERE https://www.tensorflow.org/versions/master/api_docs/python/contrib.layers/initializers
 
 #from caffe_classes import class_names
 #IMPORTING OF THREE CLASSES ACTIONS FROM CAFFE STYLE FILE
@@ -122,12 +122,13 @@ def Preprocessing(weights,x):
 class Q_Net():
 
   def __init__(self):
-        self.W6 = tf.Variable(tf.random_normal([5120,4096]))
-        self.B6 = tf.Variable(tf.random_normal([4096]))
-        self.W7 = tf.Variable(tf.random_normal([4096,4096]))
-        self.B7 = tf.Variable(tf.random_normal([4096]))
-        self.W8 = tf.Variable(tf.random_normal([4096,3]))
-        self.B8 = tf.Variable(tf.random_normal([3]))
+        #XAVIER Initialization of weights and bias
+        self.W6 = tf.Variable(tf.random_normal([5120,4096], stddev= 2 / (5120+4096)))
+        self.B6 = tf.Variable(tf.zeros([4096]))
+        self.W7 = tf.Variable(tf.random_normal([4096,4096], stddev= 2 / (4096+4096)))
+        self.B7 = tf.Variable(tf.zeros([4096]))
+        self.W8 = tf.Variable(tf.random_normal([4096,3], stddev = 2 / (4096+3)))
+        self.B8 = tf.Variable(tf.zeros([3]))
 
   def Initialitation(self, Load):
     if Load == True:
