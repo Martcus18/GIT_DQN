@@ -16,10 +16,14 @@ import urllib
 from numpy import random
 import tensorflow as tf
 
+#Convolutional Net taken from http://www.cs.toronto.edu/~guerzhoy/tf_alexnet/
+
+
 #from caffe_classes import class_names
 #IMPORTING OF THREE CLASSES ACTIONS FROM CAFFE STYLE FILE
 from classes_2 import class_names
 
+#FLAGS FOR MODEL SAVE/LOAD
 Load = True
 Save = False
 
@@ -173,6 +177,7 @@ Q2.Initialitation(not(Load))
 
 #Preprocessing of Data with Constants Layer and predictions with the two nets
 #QTarget the fixed one and Q2 the one to be trained
+
 QTarget.Preprocessing(weights,x)
 QTarget.Predict()
 Q2.Preprocessing(weights,x)
@@ -192,7 +197,7 @@ output = sess.run([Q2.prob,Q2.argmax], feed_dict = {x:[image]})
 
 
 #Saving the model eventually
-if ( Save == True):
+if ( Save == True ):
     saver.save(sess, './model/my-model')
 
 ################################################################################
