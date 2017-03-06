@@ -133,11 +133,14 @@ class Q_Net():
         self.actions = tf.placeholder(shape=[None],dtype=tf.int32)
 
         self.W6 = tf.Variable(tf.random_normal([5120,4096], stddev= 2 / (5120+4096), dtype=tf.float32))
-        self.B6 = tf.Variable(tf.zeros([4096], dtype=tf.float32))
+        #self.B6 = tf.Variable(tf.zeros([4096], dtype=tf.float32))
+        self.B6 = tf.Variable(tf.random_normal([4096], dtype=tf.float32))
         self.W7 = tf.Variable(tf.random_normal([4096,4096], stddev= 2 / (4096+4096), dtype=tf.float32))
-        self.B7 = tf.Variable(tf.zeros([4096], dtype=tf.float32))
-        self.W8 = tf.Variable(tf.random_normal([4096,3], stddev = 2 / (4096+3), dtype=tf.float32))
-        self.B8 = tf.Variable(tf.zeros([3], dtype=tf.float32))
+        self.B7 = tf.Variable(tf.random_normal([4096], dtype=tf.float32))
+        #self.B7 = tf.Variable(tf.zeros([4096], dtype=tf.float32))
+        self.W8 = tf.Variable(tf.random_normal([4096,6], stddev = 2 / (4096+6), dtype=tf.float32))
+        self.B8 = tf.Variable(tf.random_normal([6], dtype=tf.float32))
+        #self.B8 = tf.Variable(tf.zeros([6], dtype=tf.float32))
 
         self.maxpool5 = Preprocessing(weights,self.input)
         self.fc6 = tf.nn.relu_layer(tf.reshape(self.maxpool5, [-1, int(prod(self.maxpool5.get_shape()[1:]))]), self.W6, self.B6)
@@ -155,14 +158,14 @@ class Q_Net():
 
 
 #Preprocessing(weights,image)
-QTarget = Q_Net()
+#QTarget = Q_Net()
 
-init = tf.initialize_all_variables()
-trainables = tf.trainable_variables()
-sess = tf.Session()
-sess.run(init)
+#init = tf.initialize_all_variables()
+#trainables = tf.trainable_variables()
+#sess = tf.Session()
+#sess.run(init)
 
-Target = sess.run(QTarget.prob, feed_dict = {QTarget.input:[image]})
+#Target = sess.run(QTarget.prob, feed_dict = {QTarget.input:[image]})
 
 
 #prob = sess.run(Q2.prob, feed_dict = {Q2.input:[image], Q2.target:Target})
