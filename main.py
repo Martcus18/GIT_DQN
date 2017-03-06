@@ -24,7 +24,6 @@ def updateTarget(op_holder,sess):
 
 env = gym.make('Breakout-v0')
 
-
 batch_size = 4 #How many experiences to use for each training step.
 update_freq = 1000 #How often to perform a training step.
 y = .99 #Discount factor on the target Q-values
@@ -46,6 +45,8 @@ epsilon = startE
 stepDrop = (startE - endE)/anneling_steps
 
 
+
+tf.reset_default_graph()
 QTarget = Q_Net()
 QMain = Q_Net()
 
@@ -53,6 +54,8 @@ init = tf.initialize_all_variables()
 train = tf.trainable_variables()
 #saver = tf.train.Saver()
 sess = tf.Session()
+targetOps = updateTargetGraph(train,tau)
+copyOps = updateTargetGraph(train,1.0)
 
 
 total_steps = 0
@@ -108,6 +111,7 @@ for i in range(num_episodes):
                             MaxQ2[l] = np.amax(Q2[l])
                             targetQ[l] = trainBatch[l,2] + (y*MaxQ2[l]*end_multiplier[l])
                             _,prob= sess.run([QMain.updateWeights,QMain.prob],feed_dict={QMain.input:[trainBatch[:,0][l]],QMain.target:[targetQ[l]], QMain.actions:[trainBatch[:,1][l]]})
+                        updateTarget(targetOps,sess)
                         print(total_reward)
                     #updateTarget(targetOps,sess) #Set the target network to be equal to the primary network.
             total_reward += reward
