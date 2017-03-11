@@ -1,5 +1,4 @@
 #!/usr/bin/env python2
-# CODE FOR TENSORFLOW VERSION 0.12.1
 # -*- coding: utf-8 -*-
 
 from numpy import *
@@ -25,13 +24,13 @@ import tensorflow as tf
 
 
 #FLAGS FOR MODEL SAVE/LOAD
-Load = True
-Save = False
 weights = load("weights_alexnet.py").item()
-image = (imread("atari.png")[:,:,:3]).astype(float32)
+#image = (imread("atari.png")[:,:,:3]).astype(float32)
+image = (imread("atari.png")[:,:,:3]).astype(uint8)
 image = image - mean(image)
 xdim = image.shape[0:]
 
+#xdim = 100800
 
 def conv(input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group=1):
     c_i = input.get_shape()[-1]
@@ -43,10 +42,10 @@ def conv(input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group
     if group==1:
         conv = convolve(input, kernel)
     else:
-        input_groups = tf.split(3, group, input)
-        kernel_groups = tf.split(3, group, kernel)
+        input_groups = tf.split(input, group,3)
+        kernel_groups = tf.split(kernel, group, 3)
         output_groups = [convolve(i, k) for i,k in zip(input_groups, kernel_groups)]
-        conv = tf.concat(3, output_groups)
+        conv = tf.concat(output_groups,3)
     return  tf.reshape(tf.nn.bias_add(conv, biases), [-1]+conv.get_shape().as_list()[1:])
 
 def Preprocessing(weights,x):
@@ -127,45 +126,55 @@ def Preprocessing(weights,x):
 class Q_Net():
 
   def __init__(self):
-
-        self.input   = tf.placeholder(tf.float32, (None,) + xdim)
-        self.target  = tf.placeholder(shape=[None],dtype=tf.float32)
+        self.input = tf.placeholder(tf.float32, (None,) + xdim)
+        self.target = tf.placeholder(shape=[None],dtype=tf.float32)
         self.actions = tf.placeholder(shape=[None],dtype=tf.int32)
-
-        self.W6 = tf.Variable(tf.random_normal([5120,4096], stddev= 2 / (5120+4096), dtype=tf.float32))
-        #self.B6 = tf.Variable(tf.zeros([4096], dtype=tf.float32))
-        self.B6 = tf.Variable(tf.random_normal([4096], dtype=tf.float32))
-        self.W7 = tf.Variable(tf.random_normal([4096,4096], stddev= 2 / (4096+4096), dtype=tf.float32))
-        self.B7 = tf.Variable(tf.random_normal([4096], dtype=tf.float32))
-        #self.B7 = tf.Variable(tf.zeros([4096], dtype=tf.float32))
-        self.W8 = tf.Variable(tf.random_normal([4096,6], stddev = 2 / (4096+6), dtype=tf.float32))
-        self.B8 = tf.Variable(tf.random_normal([6], dtype=tf.float32))
-        #self.B8 = tf.Variable(tf.zeros([6], dtype=tf.float32))
+        
+        self.W6 = tf.Variable(tf.random_normal([5120,4096], stddev= 2 / (5120+4096)),trainable = True)
+        self.B6 = tf.Variable(tf.random_normal([4096]),trainable = True)
+        self.W7 = tf.Variable(tf.random_normal([4096,4096], stddev= 2 / (4096+4096)),trainable = True)
+        self.B7 = tf.Variable(tf.random_normal([4096]),trainable = True)
+        self.W8 = tf.Variable(tf.random_normal([4096,6], stddev = 2 / (4096+3)),trainable = True)
+        self.B8 = tf.Variable(tf.random_normal([6]),trainable = True)
 
         self.maxpool5 = Preprocessing(weights,self.input)
+
         self.fc6 = tf.nn.relu_layer(tf.reshape(self.maxpool5, [-1, int(prod(self.maxpool5.get_shape()[1:]))]), self.W6, self.B6)
     	self.fc7 = tf.nn.relu_layer(self.fc6, self.W7, self.B7)
     	self.fc8 = tf.matmul(self.fc7, self.W8) + self.B8
 
     	self.prob = tf.nn.softmax(self.fc8)
     	self.argmax = tf.argmax(self.prob,1)
+    	self.actions_onehot = tf.one_hot(self.actions,6,dtype=tf.float32)
+        self.readout_action = tf.reduce_sum(tf.multiply(self.prob, self.actions_onehot), reduction_indices=1)
 
-
-        self.loss = tf.reduce_mean(tf.square(self.target - self.prob))
+        self.loss = tf.reduce_mean(tf.square(self.target - self.readout_action))
      	self.trainer = tf.train.AdamOptimizer(learning_rate=0.0001)
      	self.updateWeights = self.trainer.minimize(self.loss)
 
 
+################################################################################
+#image = (imread("atari.png")[:,:,:3]).astype(float32)
+#image = image - mean(image)
+#xdim = image.shape[0:]
 
 #Preprocessing(weights,image)
-#QTarget = Q_Net()
+"""
+QTarget = Q_Net()
 
-#init = tf.initialize_all_variables()
-#trainables = tf.trainable_variables()
-#sess = tf.Session()
-#sess.run(init)
-
-#Target = sess.run(QTarget.prob, feed_dict = {QTarget.input:[image]})
+init = tf.initialize_all_variables()
+trainables = tf.trainable_variables()
+sess = tf.Session()
+sess.run(init)
 
 
-#prob = sess.run(Q2.prob, feed_dict = {Q2.input:[image], Q2.target:Target})
+output = sess.run(QTarget.prob, feed_dict = {QTarget.input:[image]})
+print (output)
+"""
+#Output:
+'''
+for input_im_ind in range(output.shape[0]):
+    inds = argsort(output)[input_im_ind,:]
+    print "Image", input_im_ind
+    for i in range(3):print class_names[inds[-1-i]], output[input_im_ind, inds[-1-i]]
+'''
