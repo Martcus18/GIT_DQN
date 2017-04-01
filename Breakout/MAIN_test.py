@@ -6,7 +6,6 @@ from numpy import random
 from gym.spaces.box import Box
 
 from Net2 import *
-from skimage.color import rgb2gray
 import cv2
 from collections import deque
 import random
@@ -45,14 +44,14 @@ session = tf.Session()
 
 saver = tf.train.Saver()
 session.run(tf.initialize_all_variables())
-'''
+
 checkpoint = tf.train.get_checkpoint_state("saved_networks")
 if checkpoint and checkpoint.model_checkpoint_path:
   saver.restore(session, checkpoint.model_checkpoint_path)
   print("Successfully loaded:", checkpoint.model_checkpoint_path)
 else:
   print("Could not find old network weights")
-'''
+
 
 total_steps = 0
 replay_memory = []
@@ -71,7 +70,7 @@ session.run(QTarget.b_fc2.assign(QMain.b_fc2))
 
 
 
-
+"""
 for episode in range(num_episodes):
   state = env.reset()
   oldstate = cv2.cvtColor(cv2.resize(state, (84, 84)), cv2.COLOR_BGR2GRAY)
@@ -159,7 +158,7 @@ for episode in range(num_episodes):
     saver.save(session, 'saved_networks/' + '-dqn')
   print totalrew
 
-
+"""
 for i in range(num_episodes):
         state = env.reset()
         oldstate = cv2.cvtColor(cv2.resize(state, (84, 84)), cv2.COLOR_BGR2GRAY)

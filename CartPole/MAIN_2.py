@@ -5,7 +5,7 @@ import numpy as np
 from numpy import random
 from gym.spaces.box import Box
 from Net2 import *
-from skimage.color import rgb2gray
+#from skimage.color import rgb2gray
 import cv2
 from collections import deque
 import random

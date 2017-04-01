@@ -4,7 +4,7 @@
 from numpy import *
 import os
 from pylab import *
-from skimage.color import rgb2gray
+#from skimage.color import rgb2gray
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
